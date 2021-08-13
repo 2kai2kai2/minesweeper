@@ -85,7 +85,7 @@ class game:
         elif self.visible[x][y] == 0:  # Place flag
             self.visible[x][y] = -1
             return True
-        elif self.visible[y][y] == -1:  # Remove flag
+        elif self.visible[x][y] == -1:  # Remove flag
             self.visible[x][y] = 0
             return True
         else:  # This really shouldn't happen.
