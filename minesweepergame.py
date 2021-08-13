@@ -46,6 +46,8 @@ class game:
                                         self.truemap[dx][dy] += 1
                     bombstoplant -= 1
             self.first = False
+        elif self.isGameOver() or self.isVictory():
+            return []
         # Now we do the normal stuff of checking the tile
         tile = self.truemap[x][y]
         self.visible[x][y] = 1
@@ -69,15 +71,17 @@ class game:
 
     def flag(self, x: int, y: int) -> bool:
         """
-        Places or removes a flag on the given tile. 
+        Places or removes a flag on the given tile.
 
-        Returns `True` if it changed the tile, or `False` if already open/game has not started.
+        Returns `True` if it changed the tile, or `False` if already open/game has not started/game has ended.
         """
         if x < 0 or self.width <= x or y < 0 or self.height <= y:  # Ensure we are within the grid.
             raise IndexError(
                 f"Tile ({x}, {y}) is invalid for a grid of size ({self.width}, {self.height}).")
         # Your first move cannot be placing a flag. At least one tile must be opened first.
         elif self.first:
+            return False
+        elif self.isGameOver() or self.isVictory():
             return False
         # You cannot place a flag on an opened tile.
         elif self.visible[x][y] == 1:
@@ -118,8 +122,34 @@ class game:
             raise RuntimeError(
                 f"Tile ({x}, {y}) has an invalid visibility state of {self.visible[x][y]}.")
 
+    def isGameOver(self) -> bool:
+        for x in range(self.width):
+            for y in range(self.height):
+                # If we have revealed a bomb, it is game over.
+                if self.visible[x][y] == 1 and self.truemap[x][y] == -1:
+                    return True
+        return False
+
+    def isVictory(self) -> bool:
+        for x in range(self.width):
+            for y in range(self.height):
+                # If we have unopened, unflagged tiles, it is not victory.
+                if self.visible[x][y] == 0:
+                    return False
+                # If we have stepped on a bomb, it is not victory.
+                elif self.visible[x][y] == 1 and self.truemap[x][y] == -1:
+                    return False
+                # If we have an incorrectly flagged tile, it is not victory.
+                elif self.visible[x][y] == -1 and self.truemap[x][y] != -1:
+                    return False
+        return True
+
     def __str__(self) -> str:
         string = f"Mine Sweeper Game ({self.width}x{self.height}; {self.numbombs} bombs)"
+        if self.isGameOver():
+            string += " ==GAME OVER=="
+        elif self.isVictory():
+            string += " == VICTORY =="
         for y in range(self.height):
             string += "\n"
             for x in range(self.width):

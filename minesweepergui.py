@@ -1,6 +1,8 @@
 import tkinter
+from tkinter import font
 from typing import Dict, List, Optional, Tuple
 import minesweepergame
+from PIL import Image, ImageTk
 
 board = minesweepergame.game(10, 10, 10)
 
@@ -14,6 +16,17 @@ canvassquares: List[List[Optional[int]]] = [[None for y in range(
     board.height)] for x in range(board.width)]  # Store the `_CanvasItemId`s
 canvasicons: List[List[Optional[int]]] = [[None for y in range(
     board.height)] for x in range(board.width)]  # Store the `_CanvasItemId`s
+
+# Icons
+# These will be reused and resizing will only be calculated when the canvas resizes.
+bombimage = Image.open("resources/bomb.gif")
+bombscaled = bombimage
+bombphoto = ImageTk.PhotoImage(image=bombscaled)
+flagimage = Image.open("resources/flag.gif")
+flagscaled = flagimage
+flagphoto = ImageTk.PhotoImage(image=flagscaled)
+# Font
+numfont = font.Font(family="Terminal", size=12, weight=font.BOLD)
 
 
 def drawIcon(symbol: str, x: int, y: int, tilewidth: int = None, tileheight: int = None):
@@ -32,11 +45,12 @@ def drawIcon(symbol: str, x: int, y: int, tilewidth: int = None, tileheight: int
 
     if symbol == "?":  # Blank tiles are not drawn.
         return
-    elif symbol == "F":  # Flagged tiles. TODO: Should eventually have an image.
-        canvasicons[x][y] = canvas.create_text(
-            tilewidth*(x + 0.5), tileheight*(y + 0.5), text="F", justify="center")
+    elif symbol == "F":  # Flagged tiles.
+        canvasicons[x][y] = canvas.create_image(
+            int(tilewidth*(x + 0.5)), int(tileheight*(y + 0.5)), image=flagphoto)
     elif symbol == "Q":
-        pass
+        canvasicons[x][y] = canvas.create_image(
+            int(tilewidth*(x + 0.5)), int(tileheight*(y + 0.5)), image=bombphoto)
     else:  # Number tiles
         colors: Dict[str, str] = {
             "0": "grey",
@@ -50,16 +64,19 @@ def drawIcon(symbol: str, x: int, y: int, tilewidth: int = None, tileheight: int
             "8": "slate grey"
         }
         canvasicons[x][y] = canvas.create_text(
-            tilewidth*(x + 0.5), tileheight*(y + 0.5), text=symbol, justify="center", fill=colors[symbol])
+            tilewidth*(x + 0.5), tileheight*(y + 0.5), text=symbol, justify="center", fill=colors[symbol], font=numfont)
 
 
 def render():
     boxwidth = canvas.winfo_reqwidth()/board.width
     boxheight = canvas.winfo_reqheight()/board.height
     for x in range(board.width):
+        # We go through and replace a line at a time, deleting the whole line at once.
         canvas.delete(*filter(lambda i: i is not None, canvassquares[x]))
         canvas.delete(*filter(lambda i: i is not None, canvasicons[x]))
+        # We have to make icons None since flags that have been removed won't overwrite.
         canvasicons[x] = [None for y in range(board.height)]
+
         for y in range(board.height):
             canvassquares[x][y] = canvas.create_rectangle(
                 boxwidth*x, boxheight*y, boxwidth*(x+1), boxheight*(y+1), outline="black", width=1)
@@ -67,6 +84,9 @@ def render():
 
 
 def button1(event: tkinter.Event):
+    if board.isGameOver() or board.isVictory():
+        return
+    # Calculate board position relative to pixels
     boxwidth = canvas.winfo_reqwidth()/board.width
     boxheight = canvas.winfo_reqheight()/board.height
     x = int(event.x/boxwidth)
@@ -76,7 +96,7 @@ def button1(event: tkinter.Event):
         opened = board.open(x, y)
         if opened is None:
             # We stepped on a bomb
-            pass
+            drawIcon("Q", x, y, boxwidth, boxheight)
         else:
             # Tile is safe.
             for _x, _y in opened:
@@ -84,6 +104,9 @@ def button1(event: tkinter.Event):
 
 
 def button2(event: tkinter.Event):
+    if board.isGameOver() or board.isVictory():
+        return
+    # Calculate board position relative to pixels
     boxwidth = canvas.winfo_reqwidth()/board.width
     boxheight = canvas.winfo_reqheight()/board.height
     x = int(event.x/boxwidth)
@@ -103,16 +126,36 @@ canvas.pack()
 
 
 def canvasResize(width: int, height: int):
+    """
+    Resizes the canvas to be the largest that will fit in the window while maintaining the board's aspect ratio.
+    - Resizes canvas element
+    - Resizes icons
+    - Re-renders the entire canvas
+    """
     boardaspectratio: float = board.height / board.width  # y/x
     canvasaspectratio: float = height / width  # y/x
     if boardaspectratio <= canvasaspectratio:
-        canvaswidth = width
-        canvasheight = boardaspectratio * width
+        canvaswidth = int(width)
+        canvasheight = int(boardaspectratio * width)
     else:
-        canvaswidth = height / boardaspectratio
-        canvasheight = height
+        canvaswidth = int(height / boardaspectratio)
+        canvasheight = int(height)
     # TODO: For some reason this doesn't work without the -4, or else it slowly expands by 4px recursively.
-    canvas.configure(width=int(canvaswidth) - 4, height=int(canvasheight) - 4)
+    canvas.configure(width=canvaswidth - 4, height=canvasheight - 4)
+    # Resize icons
+    iconsize = (int(canvaswidth/board.width), int(canvasheight/board.height))
+    global bombscaled
+    global bombphoto
+    bombscaled = bombimage.resize(iconsize)
+    bombphoto = ImageTk.PhotoImage(bombscaled)
+    global flagscaled
+    global flagphoto
+    flagscaled = flagimage.resize(iconsize)
+    flagphoto = ImageTk.PhotoImage(flagscaled)
+    # Resize font
+    # If negative, font size is measured in pixels.
+    numfont.configure(size=int(canvasheight/board.height * -3/4))
+    # Draw
     render()
 
 
