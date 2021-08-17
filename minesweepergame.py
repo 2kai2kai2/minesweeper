@@ -1,5 +1,5 @@
-from typing import List, Set, Tuple
 import random
+from typing import List, Set, Tuple
 
 
 class game:
@@ -157,6 +157,9 @@ class game:
         return string
 
     def showFull(self) -> str:
+        """
+        A `str` representation of the board similar to `str(self)` without tiles hidden.
+        """
         string = f"Mine Sweeper Game ({self.width}x{self.height}; {self.numbombs} bombs)"
         for y in range(self.height):
             string += "\n"
