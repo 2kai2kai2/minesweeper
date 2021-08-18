@@ -79,6 +79,7 @@ class gamegui:
         self.top = tkinter.Tk()
         self.top.title("Minesweeper")
         self.top.configure(bd=0, bg="black")
+        self.top.iconphoto(True, tkinter.PhotoImage(file="resources/bomb.gif"))
         # Canvas
         self.canvas = tkinter.Canvas(self.top, bd=0, bg="light grey")
         self.prevsize: Tuple[int, int] = (
