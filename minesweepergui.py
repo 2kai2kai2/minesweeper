@@ -35,7 +35,7 @@ class newboarddialog(simpledialog.Dialog):
         self.widthframe = tkinter.Frame(master)
         self.widthlabel = tkinter.Label(self.widthframe, text="Width")
         self.widthbox = tkinter.Spinbox(
-            self.widthframe, from_=4, to=100, command=self.updatemaxbombs)
+            self.widthframe, from_=4, to=100, command=self.updatemaxbombs, textvariable=tkinter.IntVar(value=10))
         self.widthlabel.pack(side=LEFT)
         self.widthbox.pack(side=RIGHT)
         self.widthframe.pack()
@@ -43,14 +43,15 @@ class newboarddialog(simpledialog.Dialog):
         self.heightframe = tkinter.Frame(master)
         self.heightlabel = tkinter.Label(self.heightframe, text="Height")
         self.heightbox = tkinter.Spinbox(
-            self.heightframe, from_=4, to=100, command=self.updatemaxbombs)
+            self.heightframe, from_=4, to=100, command=self.updatemaxbombs, textvariable=tkinter.IntVar(value=10))
         self.heightlabel.pack(side=LEFT)
         self.heightbox.pack(side=RIGHT)
         self.heightframe.pack()
         # Bombs
         self.bombsframe = tkinter.Frame(master)
         self.bombslabel = tkinter.Label(self.bombsframe, text="Bombs")
-        self.bombsbox = tkinter.Spinbox(self.bombsframe, from_=1, to=100)
+        self.bombsbox = tkinter.Spinbox(
+            self.bombsframe, from_=1, to=100, textvariable=tkinter.IntVar(value=20))
         self.bombslabel.pack(side=LEFT)
         self.bombsbox.pack(side=RIGHT)
         self.bombsframe.pack()
@@ -99,6 +100,8 @@ class gamegui:
         # Font
         self.fontscaled = font.Font(
             family="Terminal", size=12, weight=font.BOLD)
+        self.fontvictory = font.Font(
+            family="Terminal", size=-20, weight=font.BOLD)
 
         # Get size and initialize board
         self.boardDialog()
@@ -132,6 +135,7 @@ class gamegui:
             self.board.height)] for x in range(self.board.width)]  # Store the `_CanvasItemId`s
         self.canvasicons: List[List[Optional[int]]] = [[None for y in range(
             self.board.height)] for x in range(self.board.width)]  # Store the `_CanvasItemId`s
+        self.victoryMessage: Optional[int] = None
 
         # Render
         self.render()
@@ -175,10 +179,33 @@ class gamegui:
             self.canvasicons[x] = [None for y in range(self.board.height)]
 
             for y in range(self.board.height):
-                self.canvassquares[x][y] = self.canvas.create_rectangle(
-                    tilewidth*x, tileheight*y, tilewidth*(x+1), tileheight*(y+1), outline="black", width=1)
-                self.drawIcon(self.board.getVisible(
-                    x, y), x, y, tilewidth, tileheight)
+                if self.board.isGameOver():
+                    # == Tiles ==
+                    # The opened bomb should have a bright red tile
+                    if self.board.getVisible(x, y) == "Q":
+                        tilecolor = "red"
+                    # Mark tiles that are unopened or incorrectly flagged
+                    elif self.board.visible[x][y] == 0 or (self.board.visible[x][y] == -1 and self.board.truemap[x][y] != -1):
+                        tilecolor = "gray32"
+                    else:
+                        tilecolor = None
+                    self.canvassquares[x][y] = self.canvas.create_rectangle(
+                        tilewidth*x, tileheight*y, tilewidth*(x+1), tileheight*(y+1), outline="black", width=1, fill=tilecolor)
+                    # == Icons ==
+                    self.drawIcon(self.board.getTrue(x, y),
+                                  x, y, tilewidth, tileheight)
+                else:
+                    self.canvassquares[x][y] = self.canvas.create_rectangle(
+                        tilewidth*x, tileheight*y, tilewidth*(x+1), tileheight*(y+1), outline="black", width=1)
+                    self.drawIcon(self.board.getVisible(x, y),
+                                  x, y, tilewidth, tileheight)
+
+    def checkVictory(self):
+        if self.board.isVictory():
+            if self.victoryMessage is not None:
+                self.canvas.delete(self.victoryMessage)
+            self.victoryMessage = self.canvas.create_text(self.canvas.winfo_width(
+            )/2, self.canvas.winfo_height()/2, text="VICTORY", font=self.fontvictory)
 
     def button1(self, event: tkinter.Event):
         if self.board.isGameOver() or self.board.isVictory():
@@ -194,11 +221,13 @@ class gamegui:
             if opened is None:
                 # We stepped on a bomb
                 self.drawIcon("Q", x, y, tilewidth, tileheight)
+                self.render()
             else:
                 # Tile is safe.
                 for _x, _y in opened:
                     self.drawIcon(self.board.getVisible(_x, _y),
                                   _x, _y, tilewidth, tileheight)
+                self.checkVictory()
 
     def button2(self, event: tkinter.Event):
         if self.board.isGameOver() or self.board.isVictory():
@@ -212,6 +241,7 @@ class gamegui:
             # If something changed, draw or remove the flag.
             if self.board.visible[x][y] == -1:  # Draw a flag
                 self.drawIcon("F", x, y, tilewidth, tileheight)
+                self.checkVictory()
             else:
                 self.canvas.delete(self.canvasicons[x][y])
                 self.canvasicons[x][y] = None
@@ -240,8 +270,8 @@ class gamegui:
         # TODO: For some reason this doesn't work without the -4, or else it slowly expands by 4px recursively.
         self.canvas.configure(width=canvaswidth - 4, height=canvasheight - 4)
         # Resize icons
-        iconsize = (int(canvaswidth/self.board.width),
-                    int(canvasheight/self.board.height))
+        iconsize = (max(1, int(canvaswidth/self.board.width)),
+                    max(1, int(canvasheight/self.board.height)))
         bombscaled = bombimage.resize(iconsize)
         self.bombphoto = ImageTk.PhotoImage(bombscaled)
         flagscaled = flagimage.resize(iconsize)
@@ -252,6 +282,10 @@ class gamegui:
             size=int(canvasheight/self.board.height * -3/4))
         # Draw
         self.render()
+        # Resize victory message
+        if self.victoryMessage is not None:
+            self.canvas.moveto(self.victoryMessage, int(canvaswidth/2 - self.fontvictory.measure(
+                "VICTORY")/2), int(canvasheight/2 + self.fontvictory.cget("size")/2))
 
     def resize(self, event: tkinter.Event):
         newsize: Tuple[int, int] = (event.width, event.height)

@@ -96,6 +96,20 @@ class game:
             raise RuntimeError(
                 f"Tile ({x}, {y}) has an invalid visibility state of {self.visible[x][y]}.")
 
+    def getTrue(self, x: int, y: int) -> str:
+        """
+        Gets the true symbol for the given tile.
+        - [`0`-`8`]: Non-bomb tile
+        - `Q`: Bomb tile
+        """
+        if x < 0 or self.width <= x or y < 0 or self.height <= y:  # Ensure we are within the grid.
+            raise IndexError(
+                f"Tile ({x}, {y}) is invalid for a grid of size ({self.width}, {self.height}).")
+        if self.truemap[x][y] < 0:  # Is bomb
+            return "Q"
+        else:  # Is not bomb
+            return str(self.truemap[x][y])
+
     def getVisible(self, x: int, y: int) -> str:
         """
         Gets the player-visible symbol for a given tile.
@@ -114,10 +128,7 @@ class game:
         elif self.visible[x][y] == 0:  # Unopened tile
             return "?"
         elif self.visible[x][y] == 1:  # Opened tile
-            if self.truemap[x][y] == -1:  # Is bomb
-                return "Q"
-            else:  # Is not bomb
-                return str(self.truemap[x][y])
+            return self.getTrue(x, y)
         else:  # Invalid state
             raise RuntimeError(
                 f"Tile ({x}, {y}) has an invalid visibility state of {self.visible[x][y]}.")
